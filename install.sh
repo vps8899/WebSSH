@@ -71,7 +71,8 @@ npm install
 echo ">> 启动后端守护进程..."
 # 使用非常规端口 3999，彻底避开任何可能残留的 Docker 代理或者系统默认 PORT 环境变量的干扰
 export PORT=3999
-pm2 start server.js --name "webssh" 2>/dev/null || pm2 restart webssh
+pm2 delete webssh 2>/dev/null || true
+pm2 start server.js --name "webssh"
 pm2 save
 # 自动生成并执行开机自启脚本
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
