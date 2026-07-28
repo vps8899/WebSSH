@@ -83,9 +83,9 @@ io.on('connection', (socket) => {
                 console.log(`[SSH] Connection closed for ${socket.id}`);
                 socket.emit('ssh-close');
             }).connect({
-                host: credentials.host,
-                port: credentials.port || 22,
-                username: credentials.username,
+                host: credentials.host.trim().replace(/[\u200B-\u200D\uFEFF]/g, ''),
+                port: parseInt(credentials.port, 10) || 22,
+                username: credentials.username.trim(),
                 password: credentials.password,
                 privateKey: credentials.privateKey,
                 readyTimeout: 30000 // 30 seconds timeout
