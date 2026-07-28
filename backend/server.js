@@ -107,8 +107,8 @@ io.on('connection', (socket) => {
     });
 });
 
-// Fallback to index.html for SPA routing
-app.get('*', (req, res) => {
+// Fallback to index.html for SPA routing (Express 5 compatible)
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
