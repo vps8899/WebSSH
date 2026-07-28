@@ -27,7 +27,7 @@ export default function ConnectForm({ onConnect, isConnecting }) {
       <div className="glass-panel connect-card">
         <div className="card-header">
           <TerminalSquare size={32} className="logo-icon" />
-          <h1>WebSSH</h1>
+          <h1>VPS风向标的WebSSH</h1>
           <p className="subtitle">Secure WebSocket Terminal</p>
         </div>
 
