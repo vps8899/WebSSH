@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  webssh:
+    build: .
+    image: webssh-app:latest
+    container_name: webssh
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
