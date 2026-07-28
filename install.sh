@@ -38,18 +38,15 @@ if ! command -v caddy &> /dev/null; then
     apt-get install -y caddy
 fi
 
-# 清理历史的 Docker 容器释放 3000 端口
+# 清理历史的 Docker 容器释放端口
 INSTALL_DIR="/opt/WebSSH"
 if [ -d "$INSTALL_DIR" ]; then
     echo ">> 正在检查并清理历史 Docker 容器..."
-    cd $INSTALL_DIR
     if command -v docker &> /dev/null; then
-        if docker compose version &> /dev/null; then
-            docker compose down 2>/dev/null || true
-        else
-            docker-compose down 2>/dev/null || true
-        fi
+        # 强制清理可能残留的旧容器，避免 docker-compose down 找不到配置文件而产生孤儿容器
+        docker rm -f webssh webssh-caddy 2>/dev/null || true
     fi
+    cd $INSTALL_DIR
     echo ">> 更新代码..."
     git reset --hard
     git pull
@@ -72,15 +69,17 @@ cd $INSTALL_DIR/backend
 npm install
 
 echo ">> 启动后端守护进程..."
-# 如果 pm2 里已经有 webssh，就重启它，否则新启
+# 使用非常规端口 3999，彻底避开任何可能残留的 Docker 代理或者系统默认 PORT 环境变量的干扰
+export PORT=3999
 pm2 start server.js --name "webssh" 2>/dev/null || pm2 restart webssh
 pm2 save
-pm2 startup | grep -v '\[PM2\]' | bash || true
+# 自动生成并执行开机自启脚本
+pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
 echo ">> 配置并重启 Caddy..."
 cat <<EOF > /etc/caddy/Caddyfile
 $DOMAIN {
-    reverse_proxy 127.0.0.1:3000
+    reverse_proxy 127.0.0.1:3999
 }
 EOF
 
