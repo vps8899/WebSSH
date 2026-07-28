@@ -8,27 +8,32 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// Allow CORS for local development (if frontend is run on a different port)
-app.use(cors());
-
-// Initialize Socket.io
-const io = new Server(server, {
-    cors: {
-        origin: "*", // Allow all origins for simplicity in WebSSH, but can be restricted
-        methods: ["GET", "POST"]
-    }
-});
+// Initialize Socket.io (CORS is restricted by default in Socket.io v3+, preventing unauthorized cross-origin connections)
+const io = new Server(server);
 
 // Serve static files from the React frontend app
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 io.on('connection', (socket) => {
     console.log(`[Socket] New connection established: ${socket.id}`);
-    const sshClient = new Client();
-    let stream;
+    let sshClient = null;
+    let stream = null;
 
     // Handle incoming SSH connection request
     socket.on('ssh-connect', (credentials) => {
+        // Basic input validation to prevent server crash
+        if (!credentials || typeof credentials !== 'object' || !credentials.host || !credentials.username) {
+            socket.emit('ssh-error', 'Invalid credentials format');
+            return;
+        }
+
+        // Prevent multiple connections on the same socket (connection leak)
+        if (sshClient) {
+            sshClient.end();
+        }
+        
+        sshClient = new Client();
+
         console.log(`[SSH] Attempting connection to ${credentials.host}:${credentials.port} for user ${credentials.username}`);
         
         try {
@@ -52,13 +57,16 @@ io.on('connection', (socket) => {
                     
                     // Route data from Web Browser to SSH server
                     socket.on('ssh-input', (data) => {
-                        stream.write(data);
+                        // Prevent server crash if stream is not ready
+                        if (stream) {
+                            stream.write(data);
+                        }
                     });
 
                     // Handle terminal resize from Web Browser
                     socket.on('ssh-resize', (size) => {
-                        if (stream) {
-                            stream.setWindow(size.rows, size.cols, size.height, size.width);
+                        if (stream && size && typeof size.rows === 'number' && typeof size.cols === 'number') {
+                            stream.setWindow(size.rows, size.cols, size.height || 0, size.width || 0);
                         }
                     });
 
@@ -93,7 +101,9 @@ io.on('connection', (socket) => {
         if (stream) {
             stream.end();
         }
-        sshClient.end();
+        if (sshClient) {
+            sshClient.end();
+        }
     });
 });
 
