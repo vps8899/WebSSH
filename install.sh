@@ -54,16 +54,14 @@ echo ""
 read -p "请输入您的域名 (例如 ssh.vpsfq.com): " DOMAIN
 
 # 极致稳妥补丁 3：放弃 Docker 内部 DNS，直接使用宿主机网络直连
+# 我们直接修改 base compose 文件，避免 Docker Compose 合并 ports 数组时报错 (address already in use)
+sed -i 's/"3000:3000"/"127.0.0.1:3000:3000"/g' docker-compose.yml
+
 echo ">> 正在配置 Caddy..."
 cat <<EOF > docker-compose.override.yml
 version: '3.8'
 
 services:
-  webssh:
-    # 强制将 3000 端口映射到宿主机本地，防止 Docker 内部网络断联
-    ports:
-      - "127.0.0.1:3000:3000"
-
   caddy:
     image: caddy:alpine
     container_name: webssh-caddy
