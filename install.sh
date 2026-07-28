@@ -2,7 +2,7 @@
 set -e
 
 echo "======================================"
-echo " WebSSH 一键部署脚本 (极致稳定兜底版)"
+echo " WebSSH 一键部署脚本"
 echo "======================================"
 
 if [ "$EUID" -ne 0 ]; then
@@ -42,20 +42,8 @@ else
     cd $INSTALL_DIR
 fi
 
-# 极致稳妥补丁 1：强制修复 Node.js 在 Docker 里的 IPv6 绑定问题
-# 即使用户忘记 push 本地代码，这里也能强制打上补丁
-sed -i "s/server.listen(PORT, () => {/server.listen(PORT, '0.0.0.0', () => {/g" backend/server.js
-
-# 极致稳妥补丁 2：将 Dockerfile 的 node 版本降级到最稳定的 20 LTS，避免 22 版本的潜在原生模块崩溃
-sed -i "s/node:22-alpine/node:20-alpine/g" Dockerfile
-sed -i "s/node:18-alpine/node:20-alpine/g" Dockerfile
-
 echo ""
 read -p "请输入您的域名 (例如 ssh.vpsfq.com): " DOMAIN
-
-# 极致稳妥补丁 3：放弃 Docker 内部 DNS，直接使用宿主机网络直连
-# 我们直接修改 base compose 文件，避免 Docker Compose 合并 ports 数组时报错 (address already in use)
-sed -i 's/"3000:3000"/"127.0.0.1:3000:3000"/g' docker-compose.yml
 
 echo ">> 正在配置 Caddy..."
 cat <<EOF > docker-compose.override.yml
@@ -66,8 +54,9 @@ services:
     image: caddy:alpine
     container_name: webssh-caddy
     restart: always
-    # 使用 host 网络模式，Caddy 直接接管宿主机的 80 和 443 端口
-    network_mode: "host"
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -82,8 +71,7 @@ EOF
 
 cat <<EOF > Caddyfile
 $DOMAIN {
-    # 由于使用了 host 网络，Caddy 可以直接访问宿主机的 3000 端口，彻底解决 502 找不到容器的问题
-    reverse_proxy 127.0.0.1:3000
+    reverse_proxy webssh:3000
 }
 EOF
 
@@ -98,6 +86,6 @@ fi
 
 echo ""
 echo "======================================"
-echo " 🎉 WebSSH 极致稳妥版启动完成！"
+echo " 🎉 WebSSH 启动完成！"
 echo " 🌐 访问地址: https://$DOMAIN"
 echo "======================================"
