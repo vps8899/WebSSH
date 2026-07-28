@@ -2,7 +2,7 @@
 set -e
 
 echo "======================================"
-echo " WebSSH 一键部署脚本"
+echo " WebSSH 原生化极速部署脚本 (PM2 + Caddy)"
 echo "======================================"
 
 if [ "$EUID" -ne 0 ]; then
@@ -10,30 +10,47 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo ">> 安装必要工具..."
+echo ">> 安装系统基础工具..."
 if [ -x "$(command -v apt-get)" ]; then
-    apt-get update && apt-get install -y git curl
+    apt-get update && apt-get install -y git curl debian-keyring debian-archive-keyring apt-transport-https
 elif [ -x "$(command -v yum)" ]; then
     yum update -y && yum install -y git curl
 fi
 
-if ! command -v docker &> /dev/null; then
-    echo ">> 正在安装 Docker..."
-    curl -fsSL https://get.docker.com | bash
-    systemctl enable docker
-    systemctl start docker
+echo ">> 安装 Node.js (v20 LTS)..."
+if ! command -v node &> /dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+else
+    echo "Node.js 已安装: $(node -v)"
 fi
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo ">> 正在安装 Docker Compose..."
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+echo ">> 安装 PM2 进程守护工具..."
+if ! command -v pm2 &> /dev/null; then
+    npm install -g pm2
 fi
 
+echo ">> 安装原生 Caddy 反向代理..."
+if ! command -v caddy &> /dev/null; then
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+    apt-get update
+    apt-get install -y caddy
+fi
+
+# 清理历史的 Docker 容器释放 3000 端口
 INSTALL_DIR="/opt/WebSSH"
 if [ -d "$INSTALL_DIR" ]; then
-    echo ">> 更新代码..."
+    echo ">> 正在检查并清理历史 Docker 容器..."
     cd $INSTALL_DIR
+    if command -v docker &> /dev/null; then
+        if docker compose version &> /dev/null; then
+            docker compose down 2>/dev/null || true
+        else
+            docker-compose down 2>/dev/null || true
+        fi
+    fi
+    echo ">> 更新代码..."
     git reset --hard
     git pull
 else
@@ -45,47 +62,35 @@ fi
 echo ""
 read -p "请输入您的域名 (例如 ssh.vpsfq.com): " DOMAIN
 
-echo ">> 正在配置 Caddy..."
-cat <<EOF > docker-compose.override.yml
-version: '3.8'
+echo ">> 编译前端项目..."
+cd $INSTALL_DIR/frontend
+npm install
+npm run build
 
-services:
-  caddy:
-    image: caddy:alpine
-    container_name: webssh-caddy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - webssh
+echo ">> 安装后端依赖..."
+cd $INSTALL_DIR/backend
+npm install
 
-volumes:
-  caddy_data:
-  caddy_config:
-EOF
+echo ">> 启动后端守护进程..."
+# 如果 pm2 里已经有 webssh，就重启它，否则新启
+pm2 start server.js --name "webssh" 2>/dev/null || pm2 restart webssh
+pm2 save
+pm2 startup | grep -v '\[PM2\]' | bash || true
 
-cat <<EOF > Caddyfile
+echo ">> 配置并重启 Caddy..."
+cat <<EOF > /etc/caddy/Caddyfile
 $DOMAIN {
-    reverse_proxy webssh:3000
+    reverse_proxy 127.0.0.1:3000
 }
 EOF
 
-echo ">> 重建并启动服务..."
-if docker compose version &> /dev/null; then
-    docker compose down
-    docker compose up -d --build
-else
-    docker-compose down
-    docker-compose up -d --build
-fi
+systemctl enable caddy
+systemctl restart caddy
 
 echo ""
 echo "======================================"
-echo " 🎉 WebSSH 启动完成！"
+echo " 🎉 WebSSH (原生高性能版) 启动完成！"
 echo " 🌐 访问地址: https://$DOMAIN"
+echo " ⚙️ 查看运行状态: pm2 status webssh"
+echo " 📝 查看运行日志: pm2 logs webssh"
 echo "======================================"
