@@ -112,7 +112,8 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
+// Force port 3999 to avoid any environment variable caching issues with PM2 or Docker zombie proxies
+const PORT = process.env.PORT || 3999;
+server.listen(PORT, '127.0.0.1', () => {
     console.log(`WebSSH Server is running on port ${PORT}`);
 });
