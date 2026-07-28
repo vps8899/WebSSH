@@ -2,7 +2,7 @@
 set -e
 
 echo "======================================"
-echo " WebSSH 一键部署脚本 (CDN 兼容版)"
+echo " WebSSH 一键部署脚本 (HTTPS / 严格 SSL 兼容版)"
 echo "======================================"
 
 # 检查 root 权限
@@ -50,50 +50,45 @@ fi
 
 # 获取域名
 echo ""
-read -p "请输入您已经加了 CDN 的域名 (例如 webssh.yourdomain.com): " DOMAIN
+read -p "请输入您的域名 (例如 ssh.vpsfq.com): " DOMAIN
 
-# 配置 Nginx 反向代理 (专为 CDN 设计)
-echo ">> 正在配置 Nginx 反向代理..."
+# 配置 Caddy 自动申请 HTTPS 证书
+echo ">> 正在配置 Caddy (用于自动申请 HTTPS 证书)..."
 cat <<EOF > docker-compose.override.yml
 version: '3.8'
 
 services:
   webssh:
-    ports: [] # 移除默认端口映射，避免直接暴露
+    ports: [] 
     expose:
       - "3000"
 
-  nginx:
-    image: nginx:alpine
-    container_name: webssh-nginx
+  caddy:
+    image: caddy:alpine
+    container_name: webssh-caddy
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - webssh
+
+volumes:
+  caddy_data:
+  caddy_config:
 EOF
 
-cat <<EOF > nginx.conf
-server {
-    listen 80;
-    server_name $DOMAIN;
-
-    location / {
-        proxy_pass http://webssh:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
+cat <<EOF > Caddyfile
+$DOMAIN {
+    reverse_proxy webssh:3000
 }
 EOF
 
-echo ">> 正在拉取镜像并启动服务 (这可能需要几分钟)..."
+echo ">> 正在拉取镜像并启动服务 (首次启动会自动申请 HTTPS 证书，需要几秒钟)..."
 if docker compose version &> /dev/null; then
     docker compose up -d --build
 else
@@ -102,12 +97,11 @@ fi
 
 echo ""
 echo "======================================"
-echo " 🎉 WebSSH 安装并启动完成！"
+echo " 🎉 WebSSH 启动完成！"
 echo " "
-echo " 🌐 访问地址: http://$DOMAIN"
-echo " (如果您的 CDN 开启了 HTTPS，可以直接通过 https://$DOMAIN 访问)"
+echo " 🌐 访问地址: https://$DOMAIN"
 echo " "
-echo " ⚠️ 注意事项："
-echo " 如果您使用的是 Cloudflare 等 CDN，请确保其 SSL/TLS 加密模式设置为【灵活 (Flexible)】。"
-echo " 这样 CDN 与您服务器之间会通过 80 端口通信，并且完美支持 WebSocket。"
+echo " 正在检查 Caddy 证书申请日志："
+sleep 3
+docker logs webssh-caddy --tail 10
 echo "======================================"
