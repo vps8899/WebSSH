@@ -46,9 +46,21 @@ function App() {
         } else if (lowerMsg.includes('enotfound') || lowerMsg.includes('eai_again')) {
           translatedMsg = '🌍 找不到主机：请检查 IP 或域名是否填写正确（不要带多余的空格）。';
         } else if (lowerMsg.includes('econnrefused')) {
-          translatedMsg = '🛑 连接被拒绝：服务器可能未开放此端口（通常是22），或者 SSH 服务未启动。';
+          if (errMsg.includes('PING_SUCCESS')) {
+            translatedMsg = '🛑 连接被拒绝：服务器网络正常（能Ping通），但未开放此端口（通常是22），或者 SSH 服务未启动。';
+          } else if (errMsg.includes('PING_FAILED')) {
+            translatedMsg = '🛑 连接被拒绝：服务器未能响应Ping，可能已关机或网络不通。';
+          } else {
+            translatedMsg = '🛑 连接被拒绝：服务器可能未开放此端口（通常是22），或者 SSH 服务未启动。';
+          }
         } else if (lowerMsg.includes('etimedout')) {
-          translatedMsg = '⏳ 连接超时：服务器可能已关机、网络不通，或防火墙拦截了此端口。';
+          if (errMsg.includes('PING_SUCCESS')) {
+            translatedMsg = '⏳ 连接超时：服务器网络正常（能Ping通），说明网络没问题，但防火墙/安全组拦截了此 SSH 端口！';
+          } else if (errMsg.includes('PING_FAILED')) {
+            translatedMsg = '⏳ 连接超时：服务器未能响应Ping（不能Ping通），说明服务器大概率没开机、死机，或者 IP 不存在。';
+          } else {
+            translatedMsg = '⏳ 连接超时：服务器可能已关机、网络不通，或防火墙拦截了此端口。';
+          }
         } else if (lowerMsg.includes('ehostunreach')) {
           translatedMsg = '🚫 主机不可达：服务器可能已关机或网络连接存在问题。';
         } else if (lowerMsg.includes('handshake failed')) {

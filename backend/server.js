@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { Client } = require('ssh2');
+const { exec } = require('child_process');
 const path = require('path');
 const cors = require('cors');
 
@@ -78,7 +79,21 @@ io.on('connection', (socket) => {
                 });
             }).on('error', (err) => {
                 console.error(`[SSH] Connection error:`, err.message);
-                socket.emit('ssh-error', 'SSH Connection Error: ' + err.message);
+                
+                const errMsg = err.message;
+                if (errMsg.includes('ETIMEDOUT') || errMsg.includes('ECONNREFUSED')) {
+                    const host = credentials.host.trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+                    // Ping the host to determine if it's an offline issue or firewall/port issue
+                    exec(`ping -c 1 -W 1 ${host}`, (pingErr) => {
+                        if (pingErr) {
+                            socket.emit('ssh-error', 'SSH Connection Error: ' + errMsg + ' (PING_FAILED)');
+                        } else {
+                            socket.emit('ssh-error', 'SSH Connection Error: ' + errMsg + ' (PING_SUCCESS)');
+                        }
+                    });
+                } else {
+                    socket.emit('ssh-error', 'SSH Connection Error: ' + errMsg);
+                }
             }).on('close', () => {
                 console.log(`[SSH] Connection closed for ${socket.id}`);
                 socket.emit('ssh-close');
