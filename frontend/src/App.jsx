@@ -37,7 +37,30 @@ function App() {
 
     const onError = (errMsg) => {
       setIsConnecting(false);
-      setError(errMsg);
+      
+      let translatedMsg = errMsg;
+      if (errMsg) {
+        const lowerMsg = errMsg.toLowerCase();
+        if (lowerMsg.includes('all configured authentication methods failed')) {
+          translatedMsg = '🔑 认证失败：用户名、密码或私钥错误，请仔细核对。';
+        } else if (lowerMsg.includes('enotfound') || lowerMsg.includes('eai_again')) {
+          translatedMsg = '🌍 找不到主机：请检查 IP 或域名是否填写正确（不要带多余的空格）。';
+        } else if (lowerMsg.includes('econnrefused')) {
+          translatedMsg = '🛑 连接被拒绝：服务器可能未开放此端口（通常是22），或者 SSH 服务未启动。';
+        } else if (lowerMsg.includes('etimedout')) {
+          translatedMsg = '⏳ 连接超时：服务器可能已关机、网络不通，或防火墙拦截了此端口。';
+        } else if (lowerMsg.includes('ehostunreach')) {
+          translatedMsg = '🚫 主机不可达：服务器可能已关机或网络连接存在问题。';
+        } else if (lowerMsg.includes('handshake failed')) {
+          translatedMsg = '🤝 握手失败：目标端口可能运行的不是 SSH 服务。';
+        } else if (lowerMsg.includes('private key') || lowerMsg.includes('asn1') || lowerMsg.includes('invalid key')) {
+          translatedMsg = '🔐 密钥错误：私钥格式无效，请检查内容是否完整（须包含 BEGIN/END 标志）。';
+        } else {
+          translatedMsg = `⚠️ 连接失败：${errMsg}`;
+        }
+      }
+      
+      setError(translatedMsg);
       cleanup();
     };
 
