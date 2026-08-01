@@ -30,9 +30,9 @@ export default function Terminal({ socket, onDisconnect }) {
         cyan: '#06b6d4',
         white: '#ffffff',
       },
-      fontFamily: '"Fira Code", monospace',
+      fontFamily: '"Fira Code", "Consolas", "Courier New", monospace',
       fontSize: 14,
-      lineHeight: 1.2
+      lineHeight: 1
     });
 
     const fitAddon = new FitAddon();
