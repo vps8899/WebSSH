@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { LogOut } from 'lucide-react';
+import { LogOut, Clipboard } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
 import './Terminal.css';
 
@@ -85,6 +85,18 @@ export default function Terminal({ socket, onDisconnect }) {
     };
   }, [socket, onDisconnect]);
 
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && socket) {
+        socket.emit('ssh-input', text);
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard contents:', err);
+      alert('无法读取剪贴板，请确保您已授予浏览器访问剪贴板的权限。');
+    }
+  };
+
   return (
     <div className="terminal-container">
       <div className="terminal-header">
@@ -94,10 +106,16 @@ export default function Terminal({ socket, onDisconnect }) {
           <span className="dot dot-green"></span>
           <span className="title-text">Terminal</span>
         </div>
-        <button className="btn btn-danger btn-sm" onClick={onDisconnect}>
-          <LogOut size={16} />
-          断开连接
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-sm" onClick={handlePaste} style={{ backgroundColor: '#3b82f6', color: 'white' }}>
+            <Clipboard size={16} />
+            粘贴
+          </button>
+          <button className="btn btn-danger btn-sm" onClick={onDisconnect}>
+            <LogOut size={16} />
+            断开连接
+          </button>
+        </div>
       </div>
       <div className="terminal-body" ref={terminalRef}></div>
     </div>
