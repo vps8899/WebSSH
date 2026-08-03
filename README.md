@@ -10,28 +10,20 @@ WebSSH 是一个现代化的、基于网页的 SSH 终端客户端。旨在解�
 - ⚡ **高性能**: 采用 Xterm.js 和 Socket.io，毫秒级响应，支持终端自适应大小 (Resize)。
 - 🔑 **多认证方式**: 支持密码登录与 RSA/Ed25519 等私钥登录。
 - 👥 **高并发**: Node.js 异步非阻塞架构，支持多人同时访问和管理不同的服务器。
-- 🐳 **一键部署**: 提供 Dockerfile 和 Docker Compose 支持，几分钟内即可上线。
+- 🚀 **极速原生部署**: 完全摒弃复杂的 Docker 网络，采用 PM2 守护进程 + Caddy 原生反代，一键脚本自动签发 HTTPS 证书。
 
-## 🚀 一键部署 (Docker Compose)
+## 🚀 一键部署 (推荐)
 
-最简单的部署方式是使用 Docker。请确保您的服务器已安装 Docker 和 Docker Compose。
+我们提供了一个极其稳定、支持自动配置 HTTPS 证书的原生一键部署脚本。脚本会自动安装 Node.js、PM2 和 Caddy，配置好一切底层环境，完美解决各类因容器带来的端口和网络冲突问题。
 
-1. 克隆本项目：
-   ```bash
-   git clone https://github.com/yourusername/WebSSH.git
-   cd WebSSH
-   ```
+只需在任意支持 `curl` 和 `bash` 的 Linux 系统（推荐 Debian/Ubuntu 系列）上以 `root` 用户运行以下命令：
 
-2. 启动服务：
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+bash <(curl -s https://raw.githubusercontent.com/vps8899/WebSSH/main/install.sh)
+```
 
-3. 访问应用：
-   打开浏览器访问 `http://您的服务器IP:3000`。
-
-> **⚠️ 强烈建议 (Security Warning)**
-> 在生产环境中，为了保护您输入密码时的安全，请**务必**通过 Nginx 或 Cloudflare 等为该服务配置 **HTTPS** 证书。由于密码是在网页表单中输入的，如果没有 HTTPS，密码在网络传输中可能会被拦截。
+**运行前准备：**
+请提前将您的域名（例如 `ssh.yourdomain.com`）解析到这台 VPS 的 IP 地址。脚本运行过程中会提示您输入该域名，并自动利用 Caddy 配置好安全可靠的 HTTPS 访问环境。
 
 ## 🛠️ 本地开发
 
@@ -57,7 +49,7 @@ WebSSH 是一个现代化的、基于网页的 SSH 终端客户端。旨在解�
    node server.js
    ```
 
-服务将在 `http://localhost:3000` 运行。
+服务将在 `http://localhost:3999` 运行。
 
 ## 📜 许可证
 
